@@ -1,0 +1,224 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  passwordHash  String?
+  name          String
+  userType      UserType
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  creator       Creator?
+  brand         Brand?
+}
+
+enum UserType {
+  CREATOR
+  BRAND
+}
+
+model Creator {
+  id                String    @id @default(cuid())
+  userId            String    @unique
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  youtubeChannelId  String?   @unique
+  youtubeToken      String?
+  channelName       String?
+  channelUrl        String?
+  subscriberCount   Int?
+  profileImage      String?
+  
+  bio               String?
+  niche             String[]
+  
+  stripeAccountId   String?
+  
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  
+  contentListings   ContentListing[]
+  bids              Bid[]      @relation("CreatorBids")
+  deals             Deal[]
+}
+
+model Brand {
+  id              String    @id @default(cuid())
+  userId          String    @unique
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  companyName     String
+  website         String?
+  industry        String?
+  logo            String?
+  
+  stripeCustomerId String?
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  bids            Bid[]
+  deals           Deal[]
+}
+
+model ContentListing {
+  id              String    @id @default(cuid())
+  creatorId       String
+  creator         Creator   @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  
+  title           String
+  description     String?
+  topic           String
+  seriesName      String?
+  
+  plannedPublishDate DateTime
+  
+  status          ListingStatus @default(ACTIVE)
+  
+  expectedViews   Int?
+  avgEngagementRate Float?
+  audienceDemographics Json?
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  adSlots         AdSlot[]
+  bids            Bid[]
+}
+
+enum ListingStatus {
+  DRAFT
+  ACTIVE
+  CLOSED
+  COMPLETED
+  CANCELLED
+}
+
+model AdSlot {
+  id                String    @id @default(cuid())
+  contentListingId  String
+  contentListing    ContentListing @relation(fields: [contentListingId], references: [id], onDelete: Cascade)
+  
+  slotType          AdSlotType
+  reservePrice      Decimal   @db.Decimal(10, 2)
+  duration          Int?
+  position          String?
+  
+  status            SlotStatus @default(AVAILABLE)
+  
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  
+  bids              Bid[]
+  deal              Deal?
+}
+
+enum AdSlotType {
+  IN_VIDEO_INTEGRATION
+  LIVE_MENTION
+  STORY
+  SHOUTOUT
+  DESCRIPTION_LINK
+}
+
+enum SlotStatus {
+  AVAILABLE
+  BIDDING_CLOSED
+  SOLD
+  COMPLETED
+}
+
+model Bid {
+  id              String    @id @default(cuid())
+  brandId         String
+  brand           Brand     @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  
+  contentListingId String
+  contentListing   ContentListing @relation(fields: [contentListingId], references: [id], onDelete: Cascade)
+  
+  adSlotId        String
+  adSlot          AdSlot    @relation(fields: [adSlotId], references: [id], onDelete: Cascade)
+  
+  bidAmount       Decimal   @db.Decimal(10, 2)
+  message         String?
+  
+  status          BidStatus @default(PENDING)
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  creator         Creator   @relation("CreatorBids", fields: [creatorId], references: [id])
+  creatorId       String
+  deal            Deal?
+}
+
+enum BidStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  EXPIRED
+  OUTBID
+}
+
+model Deal {
+  id              String    @id @default(cuid())
+  
+  bidId           String    @unique
+  bid             Bid       @relation(fields: [bidId], references: [id])
+  
+  adSlotId        String    @unique
+  adSlot          AdSlot    @relation(fields: [adSlotId], references: [id])
+  
+  creatorId       String
+  creator         Creator   @relation(fields: [creatorId], references: [id])
+  
+  brandId         String
+  brand           Brand     @relation(fields: [brandId], references: [id])
+  
+  dealAmount      Decimal   @db.Decimal(10, 2)
+  platformFee     Decimal   @db.Decimal(10, 2)
+  creatorPayout   Decimal   @db.Decimal(10, 2)
+  
+  paymentTiming   PaymentTiming
+  paymentStatus   PaymentStatus @default(PENDING)
+  
+  stripePaymentIntentId String?
+  stripeTransferId      String?
+  
+  contentDelivered Boolean @default(false)
+  contentUrl       String?
+  verificationStatus VerificationStatus @default(PENDING)
+  verificationNotes  String?
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  completedAt     DateTime?
+}
+
+enum PaymentTiming {
+  UPFRONT
+  AFTER_DELIVERY
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  PROCESSING
+  FAILED
+  REFUNDED
+}
+
+enum VerificationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  DISPUTED
+}
