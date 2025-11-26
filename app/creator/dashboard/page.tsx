@@ -1,10 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Calendar, Plus, DollarSign, TrendingUp, Users, Video, X } from 'lucide-react';
 
 export default function CreatorDashboard() {
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [contentListings, setContentListings] = useState<any[]>([]);
   const [formData, setFormData] = useState({
     title: '',
     topic: '',
@@ -22,30 +25,26 @@ export default function CreatorDashboard() {
   const stats = {
     totalEarnings: 12450,
     activeBids: 8,
-    upcomingContent: 5,
+    upcomingContent: contentListings.length,
     avgEngagement: 4.2,
   };
 
-  const contentListings = [
-    {
-      id: '1',
-      title: 'Complete React Tutorial 2024',
-      topic: 'Web Development',
-      plannedDate: '2024-12-15',
-      bids: 3,
-      highestBid: 500,
-      status: 'active',
-    },
-    {
-      id: '2',
-      title: 'My Morning Routine as a Developer',
-      topic: 'Lifestyle',
-      plannedDate: '2024-12-18',
-      bids: 5,
-      highestBid: 750,
-      status: 'active',
-    },
-  ];
+  // Fetch listings on component mount
+  useEffect(() => {
+    fetchListings();
+  }, []);
+
+  const fetchListings = async () => {
+    try {
+      const response = await fetch('/api/listings');
+      if (response.ok) {
+        const data = await response.json();
+        setContentListings(data.listings || []);
+      }
+    } catch (err) {
+      console.error('Failed to fetch listings:', err);
+    }
+  };
 
   const adSlotTypes = [
     { value: 'IN_VIDEO_INTEGRATION', label: 'In-Video Integration' },
@@ -72,9 +71,60 @@ export default function CreatorDashboard() {
     });
   };
 
-  const handleSubmit = () => {
-    console.log('Creating content listing:', formData);
-    setShowCreateModal(false);
+  const handleSubmit = async () => {
+    setLoading(true);
+    setError('');
+
+    // Validate form
+    if (!formData.title || !formData.topic || !formData.plannedPublishDate) {
+      setError('Please fill in all required fields');
+      setLoading(false);
+      return;
+    }
+
+    if (formData.adSlots.length === 0) {
+      setError('Please add at least one ad slot');
+      setLoading(false);
+      return;
+    }
+
+    // Validate all ad slots have reserve prices
+    const invalidSlots = formData.adSlots.filter(slot => !slot.reservePrice || parseFloat(slot.reservePrice) <= 0);
+    if (invalidSlots.length > 0) {
+      setError('All ad slots must have a valid reserve price');
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/listings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to create listing');
+      }
+
+      // Success! Close modal and refresh listings
+      setShowCreateModal(false);
+      setFormData({
+        title: '',
+        topic: '',
+        seriesName: '',
+        plannedPublishDate: '',
+        description: '',
+        adSlots: [],
+      });
+      fetchListings(); // Refresh the listings
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -156,38 +206,64 @@ export default function CreatorDashboard() {
 
         <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-purple-500/20">
           <h2 className="text-2xl font-bold text-white mb-6">Your Content Listings</h2>
-          <div className="space-y-4">
-            {contentListings.map((listing) => (
-              <div
-                key={listing.id}
-                className="bg-slate-700/50 rounded-lg p-6 border border-purple-500/10 hover:border-purple-500/30 transition"
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <h3 className="text-xl font-semibold text-white mb-2">{listing.title}</h3>
-                    <div className="flex items-center gap-4 text-sm text-gray-400">
-                      <span className="flex items-center gap-1">
-                        <Calendar className="w-4 h-4" />
-                        {new Date(listing.plannedDate).toLocaleDateString()}
-                      </span>
-                      <span className="px-2 py-1 bg-purple-500/20 text-purple-300 rounded">
-                        {listing.topic}
-                      </span>
+          {contentListings.length === 0 ? (
+            <div className="text-center py-12 text-gray-400">
+              <Video className="w-16 h-16 mx-auto mb-4 opacity-50" />
+              <p className="text-lg mb-2">No content listings yet</p>
+              <p className="text-sm">Create your first listing to start receiving bids from brands</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {contentListings.map((listing) => {
+                const highestBid = listing.bids && listing.bids.length > 0 
+                  ? Math.max(...listing.bids.map((bid: any) => parseFloat(bid.bidAmount)))
+                  : listing.adSlots && listing.adSlots.length > 0
+                  ? Math.min(...listing.adSlots.map((slot: any) => parseFloat(slot.reservePrice)))
+                  : 0;
+                const bidCount = listing.bids ? listing.bids.length : 0;
+
+                return (
+                  <div
+                    key={listing.id}
+                    className="bg-slate-700/50 rounded-lg p-6 border border-purple-500/10 hover:border-purple-500/30 transition"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <h3 className="text-xl font-semibold text-white mb-2">{listing.title}</h3>
+                        <div className="flex items-center gap-4 text-sm text-gray-400">
+                          <span className="flex items-center gap-1">
+                            <Calendar className="w-4 h-4" />
+                            {new Date(listing.plannedPublishDate).toLocaleDateString()}
+                          </span>
+                          <span className="px-2 py-1 bg-purple-500/20 text-purple-300 rounded">
+                            {listing.topic}
+                          </span>
+                          <span className={`px-2 py-1 rounded text-xs font-medium ${
+                            listing.status === 'ACTIVE' ? 'bg-green-500/20 text-green-300' :
+                            listing.status === 'CLOSED' ? 'bg-gray-500/20 text-gray-300' :
+                            'bg-blue-500/20 text-blue-300'
+                          }`}>
+                            {listing.status}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-2xl font-bold text-white mb-1">
+                          ${highestBid.toFixed(0)}
+                        </div>
+                        <div className="text-sm text-gray-400">
+                          {bidCount} {bidCount === 1 ? 'bid' : 'bids'}
+                        </div>
+                        <button className="mt-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm transition">
+                          View Bids
+                        </button>
+                      </div>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <div className="text-2xl font-bold text-white mb-1">
-                      ${listing.highestBid}
-                    </div>
-                    <div className="text-sm text-gray-400">{listing.bids} bids</div>
-                    <button className="mt-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm transition">
-                      View Bids
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
 
@@ -205,6 +281,12 @@ export default function CreatorDashboard() {
             </div>
 
             <div className="p-6 space-y-6">
+              {error && (
+                <div className="bg-red-500/10 border border-red-500/50 text-red-400 px-4 py-3 rounded-lg">
+                  {error}
+                </div>
+              )}
+
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -357,9 +439,10 @@ export default function CreatorDashboard() {
                 </button>
                 <button
                   onClick={handleSubmit}
-                  className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white px-6 py-3 rounded-lg font-semibold transition"
+                  disabled={loading}
+                  className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white px-6 py-3 rounded-lg font-semibold transition disabled:opacity-50"
                 >
-                  Create Listing
+                  {loading ? 'Creating...' : 'Create Listing'}
                 </button>
               </div>
             </div>
