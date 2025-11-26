@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { ArrowRight, TrendingUp, DollarSign, Calendar, BarChart3, Shield, Zap } from 'lucide-react';
 
 export default function LandingPage() {
@@ -16,9 +17,9 @@ export default function LandingPage() {
             <button className="text-gray-300 hover:text-white transition px-4 py-2">
               Pricing
             </button>
-            <button className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-lg transition">
+            <Link href="/auth/signin" className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-lg transition">
               Sign In
-            </button>
+            </Link>
           </div>
         </div>
       </nav>
@@ -39,13 +40,13 @@ export default function LandingPage() {
             Transparent, efficient, and built for the creator economy.
           </p>
           <div className="flex gap-4 justify-center flex-wrap">
-            <button className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white px-8 py-4 rounded-lg font-semibold text-lg flex items-center gap-2 transition shadow-lg shadow-purple-500/50">
+            <Link href="/creator/dashboard" className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white px-8 py-4 rounded-lg font-semibold text-lg flex items-center gap-2 transition shadow-lg shadow-purple-500/50">
               I am a Creator
               <ArrowRight className="w-5 h-5" />
-            </button>
-            <button className="bg-slate-800 hover:bg-slate-700 text-white px-8 py-4 rounded-lg font-semibold text-lg border border-purple-500/30 transition">
+            </Link>
+            <Link href="/brand/discovery" className="bg-slate-800 hover:bg-slate-700 text-white px-8 py-4 rounded-lg font-semibold text-lg border border-purple-500/30 transition">
               I am a Brand
-            </button>
+            </Link>
           </div>
         </div>
       </section>
@@ -166,9 +167,9 @@ export default function LandingPage() {
             Join thousands of creators and brands building better partnerships
           </p>
           <div className="flex gap-4 justify-center flex-wrap">
-            <button className="bg-white hover:bg-gray-100 text-purple-600 px-8 py-4 rounded-lg font-semibold text-lg transition">
+            <Link href="/auth/signin" className="bg-white hover:bg-gray-100 text-purple-600 px-8 py-4 rounded-lg font-semibold text-lg transition">
               Create Account
-            </button>
+            </Link>
             <button className="bg-purple-800 hover:bg-purple-900 text-white px-8 py-4 rounded-lg font-semibold text-lg transition border border-white/20">
               Book a Demo
             </button>
