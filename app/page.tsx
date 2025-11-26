@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { ArrowRight, TrendingUp, DollarSign, Calendar, BarChart3, Shield, Zap } from 'lucide-react';
 
 export default function LandingPage() {
@@ -10,15 +11,9 @@ export default function LandingPage() {
             <span className="text-2xl font-bold text-white">AdStream</span>
           </div>
           <div className="flex items-center gap-4">
-            <button className="text-gray-300 hover:text-white transition px-4 py-2">
-              How It Works
-            </button>
-            <button className="text-gray-300 hover:text-white transition px-4 py-2">
-              Pricing
-            </button>
-            <button className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-lg transition">
+            <Link href="/auth/signin" className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-lg transition">
               Sign In
-            </button>
+            </Link>
           </div>
         </div>
       </nav>
@@ -39,13 +34,13 @@ export default function LandingPage() {
             Transparent, efficient, and built for the creator economy.
           </p>
           <div className="flex gap-4 justify-center flex-wrap">
-            <button className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white px-8 py-4 rounded-lg font-semibold text-lg flex items-center gap-2 transition shadow-lg shadow-purple-500/50">
+            <Link href="/auth/signup" className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white px-8 py-4 rounded-lg font-semibold text-lg flex items-center gap-2 transition shadow-lg shadow-purple-500/50">
               I am a Creator
               <ArrowRight className="w-5 h-5" />
-            </button>
-            <button className="bg-slate-800 hover:bg-slate-700 text-white px-8 py-4 rounded-lg font-semibold text-lg border border-purple-500/30 transition">
+            </Link>
+            <Link href="/auth/signup" className="bg-slate-800 hover:bg-slate-700 text-white px-8 py-4 rounded-lg font-semibold text-lg border border-purple-500/30 transition">
               I am a Brand
-            </button>
+            </Link>
           </div>
         </div>
       </section>
@@ -166,12 +161,12 @@ export default function LandingPage() {
             Join thousands of creators and brands building better partnerships
           </p>
           <div className="flex gap-4 justify-center flex-wrap">
-            <button className="bg-white hover:bg-gray-100 text-purple-600 px-8 py-4 rounded-lg font-semibold text-lg transition">
+            <Link href="/auth/signup" className="bg-white hover:bg-gray-100 text-purple-600 px-8 py-4 rounded-lg font-semibold text-lg transition">
               Create Account
-            </button>
-            <button className="bg-purple-800 hover:bg-purple-900 text-white px-8 py-4 rounded-lg font-semibold text-lg transition border border-white/20">
-              Book a Demo
-            </button>
+            </Link>
+            <Link href="/auth/signin" className="bg-purple-800 hover:bg-purple-900 text-white px-8 py-4 rounded-lg font-semibold text-lg transition border border-white/20">
+              Sign In
+            </Link>
           </div>
         </div>
       </section>
@@ -190,25 +185,25 @@ export default function LandingPage() {
           <div>
             <h4 className="font-semibold text-white mb-4">Product</h4>
             <ul className="space-y-2 text-gray-400">
-              <li><a href="#" className="hover:text-white transition">Features</a></li>
-              <li><a href="#" className="hover:text-white transition">Pricing</a></li>
-              <li><a href="#" className="hover:text-white transition">Case Studies</a></li>
+              <li><Link href="#" className="hover:text-white transition">Features</Link></li>
+              <li><Link href="#" className="hover:text-white transition">Pricing</Link></li>
+              <li><Link href="#" className="hover:text-white transition">Case Studies</Link></li>
             </ul>
           </div>
           <div>
             <h4 className="font-semibold text-white mb-4">Company</h4>
             <ul className="space-y-2 text-gray-400">
-              <li><a href="#" className="hover:text-white transition">About</a></li>
-              <li><a href="#" className="hover:text-white transition">Blog</a></li>
-              <li><a href="#" className="hover:text-white transition">Careers</a></li>
+              <li><Link href="#" className="hover:text-white transition">About</Link></li>
+              <li><Link href="#" className="hover:text-white transition">Blog</Link></li>
+              <li><Link href="#" className="hover:text-white transition">Careers</Link></li>
             </ul>
           </div>
           <div>
             <h4 className="font-semibold text-white mb-4">Legal</h4>
             <ul className="space-y-2 text-gray-400">
-              <li><a href="#" className="hover:text-white transition">Privacy</a></li>
-              <li><a href="#" className="hover:text-white transition">Terms</a></li>
-              <li><a href="#" className="hover:text-white transition">Contact</a></li>
+              <li><Link href="#" className="hover:text-white transition">Privacy</Link></li>
+              <li><Link href="#" className="hover:text-white transition">Terms</Link></li>
+              <li><Link href="#" className="hover:text-white transition">Contact</Link></li>
             </ul>
           </div>
         </div>
