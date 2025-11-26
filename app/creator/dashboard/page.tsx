@@ -144,9 +144,9 @@ export default function CreatorDashboard() {
             </div>
           </div>
           <div className="flex items-center gap-4">
-            <div className="w-10 h-10 bg-purple-600 rounded-full flex items-center justify-center text-white font-semibold">
+            <a href="/creator/profile" className="w-10 h-10 bg-purple-600 rounded-full flex items-center justify-center text-white font-semibold hover:bg-purple-700 transition cursor-pointer">
               JD
-            </div>
+            </a>
           </div>
         </div>
       </nav>
