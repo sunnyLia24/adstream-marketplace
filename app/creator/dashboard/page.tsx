@@ -1,13 +1,23 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 import { Calendar, Plus, DollarSign, TrendingUp, Users, Video, X } from 'lucide-react';
 
 export default function CreatorDashboard() {
+  const { data: session, status } = useSession();
+  const router = useRouter();
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
   const [contentListings, setContentListings] = useState<any[]>([]);
+  const [stats, setStats] = useState({
+    totalEarnings: 0,
+    activeBids: 0,
+    upcomingContent: 0,
+    avgEngagement: 0,
+  });
+
   const [formData, setFormData] = useState({
     title: '',
     topic: '',
@@ -22,30 +32,6 @@ export default function CreatorDashboard() {
     }>,
   });
 
-  const stats = {
-    totalEarnings: 12450,
-    activeBids: 8,
-    upcomingContent: contentListings.length,
-    avgEngagement: 4.2,
-  };
-
-  // Fetch listings on component mount
-  useEffect(() => {
-    fetchListings();
-  }, []);
-
-  const fetchListings = async () => {
-    try {
-      const response = await fetch('/api/listings');
-      if (response.ok) {
-        const data = await response.json();
-        setContentListings(data.listings || []);
-      }
-    } catch (err) {
-      console.error('Failed to fetch listings:', err);
-    }
-  };
-
   const adSlotTypes = [
     { value: 'IN_VIDEO_INTEGRATION', label: 'In-Video Integration' },
     { value: 'LIVE_MENTION', label: 'Live Mention' },
@@ -53,6 +39,47 @@ export default function CreatorDashboard() {
     { value: 'SHOUTOUT', label: 'Shoutout' },
     { value: 'DESCRIPTION_LINK', label: 'Description Link' },
   ];
+
+  // Redirect if not authenticated
+  useEffect(() => {
+    if (status === 'unauthenticated') {
+      router.push('/auth/signin');
+    }
+  }, [status, router]);
+
+  // Fetch profile and listings
+  useEffect(() => {
+    if (status === 'authenticated') {
+      fetchProfile();
+      fetchListings();
+    }
+  }, [status]);
+
+  const fetchProfile = async () => {
+    try {
+      const response = await fetch('/api/creators/profile');
+      if (response.ok) {
+        const data = await response.json();
+        setStats(data.stats || stats);
+      }
+    } catch (error) {
+      console.error('Error fetching profile:', error);
+    }
+  };
+
+  const fetchListings = async () => {
+    try {
+      const response = await fetch('/api/creators/content-listings');
+      if (response.ok) {
+        const data = await response.json();
+        setContentListings(data);
+      }
+    } catch (error) {
+      console.error('Error fetching listings:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const addAdSlot = () => {
     setFormData({
@@ -72,60 +99,43 @@ export default function CreatorDashboard() {
   };
 
   const handleSubmit = async () => {
-    setLoading(true);
-    setError('');
-
-    // Validate form
-    if (!formData.title || !formData.topic || !formData.plannedPublishDate) {
-      setError('Please fill in all required fields');
-      setLoading(false);
-      return;
-    }
-
-    if (formData.adSlots.length === 0) {
-      setError('Please add at least one ad slot');
-      setLoading(false);
-      return;
-    }
-
-    // Validate all ad slots have reserve prices
-    const invalidSlots = formData.adSlots.filter(slot => !slot.reservePrice || parseFloat(slot.reservePrice) <= 0);
-    if (invalidSlots.length > 0) {
-      setError('All ad slots must have a valid reserve price');
-      setLoading(false);
-      return;
-    }
-
     try {
-      const response = await fetch('/api/listings', {
+      const response = await fetch('/api/creators/content-listings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to create listing');
+      if (response.ok) {
+        const newListing = await response.json();
+        setContentListings([newListing, ...contentListings]);
+        setShowCreateModal(false);
+        // Reset form
+        setFormData({
+          title: '',
+          topic: '',
+          seriesName: '',
+          plannedPublishDate: '',
+          description: '',
+          adSlots: [],
+        });
+      } else {
+        const error = await response.json();
+        alert(error.error || 'Failed to create listing');
       }
-
-      // Success! Close modal and refresh listings
-      setShowCreateModal(false);
-      setFormData({
-        title: '',
-        topic: '',
-        seriesName: '',
-        plannedPublishDate: '',
-        description: '',
-        adSlots: [],
-      });
-      fetchListings(); // Refresh the listings
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
+    } catch (error) {
+      console.error('Error creating listing:', error);
+      alert('Failed to create listing');
     }
   };
+
+  if (status === 'loading' || loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
+        <div className="text-white text-xl">Loading...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
@@ -137,16 +147,19 @@ export default function CreatorDashboard() {
               <span className="text-xl font-bold text-white">AdStream</span>
             </div>
             <div className="flex gap-4">
-              <a href="#" className="text-white font-medium">Dashboard</a>
-              <a href="#" className="text-gray-400 hover:text-white transition">Bids</a>
-              <a href="#" className="text-gray-400 hover:text-white transition">Deals</a>
-              <a href="#" className="text-gray-400 hover:text-white transition">Analytics</a>
+              <a href="/creator/dashboard" className="text-white font-medium">Dashboard</a>
+              <a href="/creator/bids" className="text-gray-400 hover:text-white transition">Bids</a>
+              <a href="/creator/deals" className="text-gray-400 hover:text-white transition">Deals</a>
             </div>
           </div>
           <div className="flex items-center gap-4">
-            <a href="/creator/profile" className="w-10 h-10 bg-purple-600 rounded-full flex items-center justify-center text-white font-semibold hover:bg-purple-700 transition cursor-pointer">
-              JD
-            </a>
+            <span className="text-gray-300">{session?.user?.name}</span>
+            <button
+              onClick={() => router.push('/api/auth/signout')}
+              className="text-gray-400 hover:text-white transition"
+            >
+              Sign Out
+            </button>
           </div>
         </div>
       </nav>
@@ -154,7 +167,7 @@ export default function CreatorDashboard() {
       <div className="max-w-7xl mx-auto px-6 py-8">
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-4xl font-bold text-white mb-2">Welcome back, Creator!</h1>
+            <h1 className="text-4xl font-bold text-white mb-2">Welcome back, {session?.user?.name}!</h1>
             <p className="text-gray-300">Manage your content and track your earnings</p>
           </div>
           <button
@@ -172,8 +185,8 @@ export default function CreatorDashboard() {
               <span className="text-gray-400">Total Earnings</span>
               <DollarSign className="w-5 h-5 text-green-400" />
             </div>
-            <div className="text-3xl font-bold text-white">${stats.totalEarnings.toLocaleString()}</div>
-            <div className="text-sm text-green-400 mt-1">+12% this month</div>
+            <div className="text-3xl font-bold text-white">${Number(stats.totalEarnings).toFixed(2)}</div>
+            <div className="text-sm text-gray-400 mt-1">All time</div>
           </div>
 
           <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-purple-500/20">
@@ -182,7 +195,7 @@ export default function CreatorDashboard() {
               <TrendingUp className="w-5 h-5 text-purple-400" />
             </div>
             <div className="text-3xl font-bold text-white">{stats.activeBids}</div>
-            <div className="text-sm text-gray-400 mt-1">Across {stats.upcomingContent} listings</div>
+            <div className="text-sm text-gray-400 mt-1">Pending review</div>
           </div>
 
           <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-purple-500/20">
@@ -191,77 +204,63 @@ export default function CreatorDashboard() {
               <Video className="w-5 h-5 text-pink-400" />
             </div>
             <div className="text-3xl font-bold text-white">{stats.upcomingContent}</div>
-            <div className="text-sm text-gray-400 mt-1">Next: Dec 15</div>
+            <div className="text-sm text-gray-400 mt-1">Scheduled</div>
           </div>
 
           <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-purple-500/20">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-gray-400">Avg Engagement</span>
+              <span className="text-gray-400">Total Listings</span>
               <Users className="w-5 h-5 text-blue-400" />
             </div>
-            <div className="text-3xl font-bold text-white">{stats.avgEngagement}%</div>
-            <div className="text-sm text-gray-400 mt-1">Last 30 days</div>
+            <div className="text-3xl font-bold text-white">{contentListings.length}</div>
+            <div className="text-sm text-gray-400 mt-1">All time</div>
           </div>
         </div>
 
         <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-purple-500/20">
           <h2 className="text-2xl font-bold text-white mb-6">Your Content Listings</h2>
           {contentListings.length === 0 ? (
-            <div className="text-center py-12 text-gray-400">
-              <Video className="w-16 h-16 mx-auto mb-4 opacity-50" />
-              <p className="text-lg mb-2">No content listings yet</p>
-              <p className="text-sm">Create your first listing to start receiving bids from brands</p>
+            <div className="text-center py-12">
+              <p className="text-gray-400 mb-4">No content listings yet</p>
+              <button
+                onClick={() => setShowCreateModal(true)}
+                className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg transition"
+              >
+                Create Your First Listing
+              </button>
             </div>
           ) : (
             <div className="space-y-4">
-              {contentListings.map((listing) => {
-                const highestBid = listing.bids && listing.bids.length > 0 
-                  ? Math.max(...listing.bids.map((bid: any) => parseFloat(bid.bidAmount)))
-                  : listing.adSlots && listing.adSlots.length > 0
-                  ? Math.min(...listing.adSlots.map((slot: any) => parseFloat(slot.reservePrice)))
-                  : 0;
-                const bidCount = listing.bids ? listing.bids.length : 0;
-
-                return (
-                  <div
-                    key={listing.id}
-                    className="bg-slate-700/50 rounded-lg p-6 border border-purple-500/10 hover:border-purple-500/30 transition"
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <h3 className="text-xl font-semibold text-white mb-2">{listing.title}</h3>
-                        <div className="flex items-center gap-4 text-sm text-gray-400">
-                          <span className="flex items-center gap-1">
-                            <Calendar className="w-4 h-4" />
-                            {new Date(listing.plannedPublishDate).toLocaleDateString()}
-                          </span>
-                          <span className="px-2 py-1 bg-purple-500/20 text-purple-300 rounded">
-                            {listing.topic}
-                          </span>
-                          <span className={`px-2 py-1 rounded text-xs font-medium ${
-                            listing.status === 'ACTIVE' ? 'bg-green-500/20 text-green-300' :
-                            listing.status === 'CLOSED' ? 'bg-gray-500/20 text-gray-300' :
-                            'bg-blue-500/20 text-blue-300'
-                          }`}>
-                            {listing.status}
-                          </span>
-                        </div>
+              {contentListings.map((listing) => (
+                <div
+                  key={listing.id}
+                  className="bg-slate-700/50 rounded-lg p-6 border border-purple-500/10 hover:border-purple-500/30 transition"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <h3 className="text-xl font-semibold text-white mb-2">{listing.title}</h3>
+                      <div className="flex items-center gap-4 text-sm text-gray-400">
+                        <span className="flex items-center gap-1">
+                          <Calendar className="w-4 h-4" />
+                          {new Date(listing.plannedPublishDate).toLocaleDateString()}
+                        </span>
+                        <span className="px-2 py-1 bg-purple-500/20 text-purple-300 rounded">
+                          {listing.topic}
+                        </span>
+                        <span>{listing.adSlots?.length || 0} ad slots</span>
                       </div>
-                      <div className="text-right">
-                        <div className="text-2xl font-bold text-white mb-1">
-                          ${highestBid.toFixed(0)}
-                        </div>
-                        <div className="text-sm text-gray-400">
-                          {bidCount} {bidCount === 1 ? 'bid' : 'bids'}
-                        </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-sm text-gray-400 mb-1">{listing.bids?.length || 0} bids</div>
+                      {listing.bids && listing.bids.length > 0 && (
                         <button className="mt-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm transition">
                           View Bids
                         </button>
-                      </div>
+                      )}
                     </div>
                   </div>
-                );
-              })}
+                </div>
+              ))}
             </div>
           )}
         </div>
@@ -281,12 +280,6 @@ export default function CreatorDashboard() {
             </div>
 
             <div className="p-6 space-y-6">
-              {error && (
-                <div className="bg-red-500/10 border border-red-500/50 text-red-400 px-4 py-3 rounded-lg">
-                  {error}
-                </div>
-              )}
-
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -338,6 +331,7 @@ export default function CreatorDashboard() {
                     value={formData.plannedPublishDate}
                     onChange={(e) => setFormData({ ...formData, plannedPublishDate: e.target.value })}
                     className="w-full bg-slate-700/50 border border-gray-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-purple-500"
+                    min={new Date().toISOString().split('T')[0]}
                   />
                 </div>
 
@@ -439,10 +433,10 @@ export default function CreatorDashboard() {
                 </button>
                 <button
                   onClick={handleSubmit}
-                  disabled={loading}
-                  className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white px-6 py-3 rounded-lg font-semibold transition disabled:opacity-50"
+                  disabled={!formData.title || !formData.topic || !formData.plannedPublishDate || formData.adSlots.length === 0}
+                  className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white px-6 py-3 rounded-lg font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {loading ? 'Creating...' : 'Create Listing'}
+                  Create Listing
                 </button>
               </div>
             </div>
