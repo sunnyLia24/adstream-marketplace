@@ -18,6 +18,10 @@ export async function POST(
     const { reason } = body; // Optional rejection reason
 
     // Get creator profile
+    if (!session.user?.email) {
+      return NextResponse.json({ error: 'Invalid session' }, { status: 401 });
+    }
+
     const creator = await prisma.creator.findFirst({
       where: { user: { email: session.user.email } },
     });
