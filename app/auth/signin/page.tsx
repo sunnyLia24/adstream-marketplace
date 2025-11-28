@@ -22,14 +22,21 @@ export default function SignInPage() {
       const result = await signIn('credentials', {
         email,
         password,
-        userType,
         redirect: false,
       });
 
       if (result?.error) {
         setError('Invalid credentials');
       } else {
-        router.push(userType === 'creator' ? '/creator/dashboard' : '/brand/discover');
+        // Fetch user profile to determine redirect
+        const userResponse = await fetch('/api/user/profile');
+        const userData = await userResponse.json();
+
+        if (userData.userType === 'CREATOR') {
+          router.push('/creator/dashboard');
+        } else {
+          router.push('/brand/discover');
+        }
       }
     } catch (err) {
       setError('Something went wrong');
