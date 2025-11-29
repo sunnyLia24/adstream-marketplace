@@ -22,14 +22,23 @@ export default function SignInPage() {
       const result = await signIn('credentials', {
         email,
         password,
-        userType,
         redirect: false,
       });
 
       if (result?.error) {
         setError('Invalid credentials');
       } else {
-        router.push(userType === 'creator' ? '/creator/dashboard' : '/brand/discover');
+        // Fetch user profile to determine correct redirect
+        const userResponse = await fetch('/api/user/profile');
+        const userData = await userResponse.json();
+
+        if (userData.userType === 'CREATOR') {
+          router.push('/creator/dashboard');
+        } else if (userData.userType === 'BRAND') {
+          router.push('/brand/discover');
+        } else {
+          router.push('/');
+        }
       }
     } catch (err) {
       setError('Something went wrong');
@@ -40,8 +49,9 @@ export default function SignInPage() {
 
   const handleGoogleSignIn = async () => {
     setLoading(true);
+    // For Google OAuth, we'll redirect after and let NextAuth handle it
     await signIn('google', {
-      callbackUrl: userType === 'creator' ? '/creator/dashboard' : '/brand/discover',
+      callbackUrl: '/auth/redirect',
     });
   };
 
