@@ -3,19 +3,23 @@ import { getServerSession } from 'next-auth';
 import { prisma } from '@/lib/prisma';
 import { google } from 'googleapis';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(req: Request) {
   try {
     const session = await getServerSession();
-    
+    const url = new URL(req.url);
+    const baseUrl = `${url.protocol}//${url.host}`;
+
     if (!session?.user?.email) {
-      return NextResponse.redirect('/auth/signin');
+      return NextResponse.redirect(`${baseUrl}/auth/signin`);
     }
 
-    const { searchParams } = new URL(req.url);
+    const { searchParams } = url;
     const code = searchParams.get('code');
 
     if (!code) {
-      return NextResponse.redirect('/creator/profile?error=no_code');
+      return NextResponse.redirect(`${baseUrl}/creator/profile?error=no_code`);
     }
 
     // Exchange code for tokens
@@ -40,9 +44,11 @@ export async function GET(req: Request) {
     });
 
     const channel = channelResponse.data.items?.[0];
-    
+    const url = new URL(req.url);
+    const baseUrl = `${url.protocol}//${url.host}`;
+
     if (!channel) {
-      return NextResponse.redirect('/creator/profile?error=no_channel');
+      return NextResponse.redirect(`${baseUrl}/creator/profile?error=no_channel`);
     }
 
     // Find the user with their creator profile
@@ -52,7 +58,7 @@ export async function GET(req: Request) {
     });
 
     if (!user || !user.creator) {
-      return NextResponse.redirect('/creator/profile?error=no_profile');
+      return NextResponse.redirect(`${baseUrl}/creator/profile?error=no_profile`);
     }
 
     // Update creator profile with YouTube data
@@ -68,10 +74,12 @@ export async function GET(req: Request) {
       },
     });
 
-    return NextResponse.redirect('/creator/profile?success=youtube_connected');
+    return NextResponse.redirect(`${baseUrl}/creator/profile?success=youtube_connected`);
   } catch (error: any) {
     console.error('YouTube callback error:', error);
-    return NextResponse.redirect('/creator/profile?error=callback_failed');
+    const url = new URL(req.url);
+    const baseUrl = `${url.protocol}//${url.host}`;
+    return NextResponse.redirect(`${baseUrl}/creator/profile?error=callback_failed`);
   }
 }
 
