@@ -8,6 +8,7 @@ import { Search, Filter, Users, TrendingUp, Calendar, DollarSign, Eye, Target, X
 export default function BrandDiscovery() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const [mounted, setMounted] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [showBidModal, setShowBidModal] = useState(false);
   const [selectedContent, setSelectedContent] = useState<any>(null);
@@ -24,9 +25,14 @@ export default function BrandDiscovery() {
   });
 
   const niches = [
-    'Technology', 'Gaming', 'Beauty', 'Fitness', 'Cooking', 
+    'Technology', 'Gaming', 'Beauty', 'Fitness', 'Cooking',
     'Travel', 'Finance', 'Education', 'Entertainment', 'Lifestyle'
   ];
+
+  // Ensure client-side only rendering
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -106,7 +112,7 @@ export default function BrandDiscovery() {
     });
   };
 
-  if (status === 'loading' || loading) {
+  if (!mounted || status === 'loading' || loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
         <div className="text-white text-xl">Loading...</div>
