@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { signIn } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Youtube, Mail, Lock, Building2, User } from 'lucide-react';
 
-export default function SignInPage() {
+function SignInForm() {
   const searchParams = useSearchParams();
   const urlUserType = searchParams.get('userType') as 'creator' | 'brand' | null;
   const registered = searchParams.get('registered');
@@ -198,5 +198,17 @@ export default function SignInPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function SignInPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
+        <div className="text-white text-xl">Loading...</div>
+      </div>
+    }>
+      <SignInForm />
+    </Suspense>
   );
 }
