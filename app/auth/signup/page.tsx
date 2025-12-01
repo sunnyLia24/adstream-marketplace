@@ -44,7 +44,8 @@ export default function SignUpPage() {
         throw new Error(data.error || 'Something went wrong');
       }
 
-      router.push('/auth/signin?registered=true');
+      // Redirect to signin with userType to auto-select the correct tab
+      router.push(`/auth/signin?registered=true&userType=${userType}`);
     } catch (err: any) {
       setError(err.message);
     } finally {

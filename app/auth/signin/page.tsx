@@ -1,17 +1,28 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { signIn } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Youtube, Mail, Lock, Building2, User } from 'lucide-react';
 
 export default function SignInPage() {
-  const [userType, setUserType] = useState<'creator' | 'brand'>('creator');
+  const searchParams = useSearchParams();
+  const urlUserType = searchParams.get('userType') as 'creator' | 'brand' | null;
+  const registered = searchParams.get('registered');
+
+  const [userType, setUserType] = useState<'creator' | 'brand'>(urlUserType || 'creator');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const router = useRouter();
+
+  useEffect(() => {
+    if (registered === 'true') {
+      setSuccess('Account created successfully! Please sign in.');
+    }
+  }, [registered]);
 
   const handleEmailSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -115,6 +126,12 @@ export default function SignInPage() {
           {error && (
             <div className="bg-red-500/10 border border-red-500/50 text-red-400 px-4 py-3 rounded-lg mb-4">
               {error}
+            </div>
+          )}
+
+          {success && (
+            <div className="bg-green-500/10 border border-green-500/50 text-green-400 px-4 py-3 rounded-lg mb-4">
+              {success}
             </div>
           )}
 
