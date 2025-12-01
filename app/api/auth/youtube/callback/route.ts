@@ -44,8 +44,6 @@ export async function GET(req: Request) {
     });
 
     const channel = channelResponse.data.items?.[0];
-    const url = new URL(req.url);
-    const baseUrl = `${url.protocol}//${url.host}`;
 
     if (!channel) {
       return NextResponse.redirect(`${baseUrl}/creator/profile?error=no_channel`);
