@@ -1,12 +1,15 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   try {
     const session = await getServerSession();
-    
+    const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
+
     if (!session?.user?.email) {
-      return NextResponse.redirect('/auth/signin');
+      return NextResponse.redirect(`${baseUrl}/auth/signin`);
     }
 
     // TODO: Implement YouTube OAuth flow
