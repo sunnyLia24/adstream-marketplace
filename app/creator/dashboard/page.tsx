@@ -150,9 +150,12 @@ export default function CreatorDashboard() {
               <a href="/creator/dashboard" className="text-white font-medium">Dashboard</a>
               <a href="/creator/bids" className="text-gray-400 hover:text-white transition">Bids</a>
               <a href="/creator/deals" className="text-gray-400 hover:text-white transition">Deals</a>
+              <a href="/creator/earnings" className="text-gray-400 hover:text-white transition">Earnings</a>
+              <a href="/creator/analytics" className="text-gray-400 hover:text-white transition">Analytics</a>
             </div>
           </div>
           <div className="flex items-center gap-4">
+            <a href="/creator/profile" className="text-gray-400 hover:text-white transition">Profile</a>
             <span className="text-gray-300">{session?.user?.name}</span>
             <button
               onClick={() => router.push('/api/auth/signout')}

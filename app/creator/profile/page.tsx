@@ -137,14 +137,21 @@ export default function CreatorProfile() {
             </div>
             <div className="flex gap-4">
               <a href="/creator/dashboard" className="text-gray-400 hover:text-white transition">Dashboard</a>
-              <a href="/creator/profile" className="text-white font-medium">Profile</a>
-              <a href="#" className="text-gray-400 hover:text-white transition">Analytics</a>
+              <a href="/creator/bids" className="text-gray-400 hover:text-white transition">Bids</a>
+              <a href="/creator/deals" className="text-gray-400 hover:text-white transition">Deals</a>
+              <a href="/creator/earnings" className="text-gray-400 hover:text-white transition">Earnings</a>
+              <a href="/creator/analytics" className="text-gray-400 hover:text-white transition">Analytics</a>
             </div>
           </div>
           <div className="flex items-center gap-4">
-            <div className="w-10 h-10 bg-purple-600 rounded-full flex items-center justify-center text-white font-semibold">
-              {profile?.user.name.split(' ').map((n: string) => n[0]).join('').toUpperCase()}
-            </div>
+            <a href="/creator/profile" className="text-white font-medium">Profile</a>
+            <span className="text-gray-300">{profile?.user.name}</span>
+            <button
+              onClick={() => router.push('/api/auth/signout')}
+              className="text-gray-400 hover:text-white transition"
+            >
+              Sign Out
+            </button>
           </div>
         </div>
       </nav>
