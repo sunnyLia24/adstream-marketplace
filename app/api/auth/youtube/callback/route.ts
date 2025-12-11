@@ -3,26 +3,30 @@ import { getServerSession } from 'next-auth';
 import { prisma } from '@/lib/prisma';
 import { google } from 'googleapis';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(req: Request) {
+  const baseUrl = process.env.NEXTAUTH_URL || new URL(req.url).origin;
+
   try {
     const session = await getServerSession();
-    
+
     if (!session?.user?.email) {
-      return NextResponse.redirect('/auth/signin');
+      return NextResponse.redirect(`${baseUrl}/auth/signin`);
     }
 
     const { searchParams } = new URL(req.url);
     const code = searchParams.get('code');
 
     if (!code) {
-      return NextResponse.redirect('/creator/profile?error=no_code');
+      return NextResponse.redirect(`${baseUrl}/creator/profile?error=no_code`);
     }
 
     // Exchange code for tokens
     const oauth2Client = new google.auth.OAuth2(
       process.env.GOOGLE_CLIENT_ID,
       process.env.GOOGLE_CLIENT_SECRET,
-      `${process.env.NEXTAUTH_URL}/api/auth/youtube/callback`
+      `${baseUrl}/api/auth/youtube/callback`
     );
 
     const { tokens } = await oauth2Client.getToken(code);
@@ -40,9 +44,9 @@ export async function GET(req: Request) {
     });
 
     const channel = channelResponse.data.items?.[0];
-    
+
     if (!channel) {
-      return NextResponse.redirect('/creator/profile?error=no_channel');
+      return NextResponse.redirect(`${baseUrl}/creator/profile?error=no_channel`);
     }
 
     // Find the user with their creator profile
@@ -52,7 +56,7 @@ export async function GET(req: Request) {
     });
 
     if (!user || !user.creator) {
-      return NextResponse.redirect('/creator/profile?error=no_profile');
+      return NextResponse.redirect(`${baseUrl}/creator/profile?error=no_profile`);
     }
 
     // Update creator profile with YouTube data
@@ -68,10 +72,10 @@ export async function GET(req: Request) {
       },
     });
 
-    return NextResponse.redirect('/creator/profile?success=youtube_connected');
+    return NextResponse.redirect(`${baseUrl}/creator/profile?success=youtube_connected`);
   } catch (error: any) {
     console.error('YouTube callback error:', error);
-    return NextResponse.redirect('/creator/profile?error=callback_failed');
+    return NextResponse.redirect(`${baseUrl}/creator/profile?error=callback_failed`);
   }
 }
 

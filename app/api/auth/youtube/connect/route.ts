@@ -1,19 +1,22 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 
-export async function GET() {
+export const dynamic = 'force-dynamic';
+
+export async function GET(req: Request) {
+  const baseUrl = process.env.NEXTAUTH_URL || new URL(req.url).origin;
+
   try {
     const session = await getServerSession();
-    
+
     if (!session?.user?.email) {
-      return NextResponse.redirect('/auth/signin');
+      return NextResponse.redirect(`${baseUrl}/auth/signin`);
     }
 
-    // TODO: Implement YouTube OAuth flow
-    // For now, redirect to Google OAuth with YouTube scope
-    const redirectUri = `${process.env.NEXTAUTH_URL}/api/auth/youtube/callback`;
+    // Redirect to Google OAuth with YouTube scope
+    const redirectUri = `${baseUrl}/api/auth/youtube/callback`;
     const clientId = process.env.GOOGLE_CLIENT_ID;
-    
+
     if (!clientId) {
       return NextResponse.json(
         { error: 'YouTube integration not configured. Please set up Google OAuth credentials.' },
