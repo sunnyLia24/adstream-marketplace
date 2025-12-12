@@ -5,12 +5,20 @@ import { PrismaAdapter } from '@next-auth/prisma-adapter';
 import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 
+// Validate required environment variables
+if (!process.env.GOOGLE_CLIENT_ID) {
+  throw new Error('Missing GOOGLE_CLIENT_ID environment variable');
+}
+if (!process.env.GOOGLE_CLIENT_SECRET) {
+  throw new Error('Missing GOOGLE_CLIENT_SECRET environment variable');
+}
+
 const handler = NextAuth({
   adapter: PrismaAdapter(prisma),
   providers: [
     GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID || 'placeholder',
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET || 'placeholder',
+      clientId: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
     }),
     CredentialsProvider({
       name: 'credentials',
@@ -65,7 +73,7 @@ const handler = NextAuth({
       return session;
     },
   },
-  secret: process.env.NEXTAUTH_SECRET || 'fallback-secret-key',
+  secret: process.env.NEXTAUTH_SECRET,
 });
 
 export { handler as GET, handler as POST };
