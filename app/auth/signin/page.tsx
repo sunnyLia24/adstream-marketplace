@@ -1,3 +1,47 @@
+/**
+ * =============================================================================
+ * SIGN IN PAGE COMPONENT
+ * =============================================================================
+ *
+ * This is the authentication page where existing users can sign in to AdStream.
+ * It supports two user types (Creator and Brand) and two auth methods:
+ * 1. Email/Password authentication (via NextAuth Credentials provider)
+ * 2. Google/YouTube OAuth (for Creators only)
+ *
+ * PAGE FLOW:
+ * ----------
+ * 1. User selects their account type (Creator or Brand)
+ * 2. Creator can use Google OAuth or Email/Password
+ * 3. Brand uses Email/Password only
+ * 4. On success, redirects to appropriate dashboard:
+ *    - Creators → /creator/dashboard
+ *    - Brands → /brand/discover
+ *
+ * COMPONENT STRUCTURE:
+ * --------------------
+ * - Logo and branding header
+ * - User type toggle (Creator/Brand tabs)
+ * - Google OAuth button (Creators only)
+ * - Divider with "Or continue with email"
+ * - Email/Password form
+ * - Error message display
+ * - Sign up link for new users
+ *
+ * STATE MANAGEMENT:
+ * -----------------
+ * - userType: 'creator' | 'brand' - Selected account type
+ * - email/password: Form input values
+ * - loading: Shows loading state during auth
+ * - error: Error message to display
+ *
+ * NEXT.JS/NEXTAUTH INTEGRATION:
+ * -----------------------------
+ * - 'use client': Required for React hooks (useState, etc.)
+ * - signIn from 'next-auth/react': Handles authentication
+ * - redirect: false: Prevents automatic redirect to handle errors
+ * - useRouter: For programmatic navigation on success
+ */
+
 'use client';
 
 import { useState } from 'react';
@@ -5,20 +49,53 @@ import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { Youtube, Mail, Lock, Building2, User } from 'lucide-react';
 
+/**
+ * SignInPage Component
+ *
+ * Handles user authentication with support for both creators and brands.
+ * Creators can use Google OAuth, while both types can use email/password.
+ *
+ * @returns The sign-in page with authentication forms
+ */
 export default function SignInPage() {
+  // =========================================================================
+  // STATE MANAGEMENT
+  // =========================================================================
+
+  // Track selected user type - determines which dashboard to redirect to
   const [userType, setUserType] = useState<'creator' | 'brand'>('creator');
+
+  // Form input states
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+
+  // UI state
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // Next.js router for programmatic navigation
   const router = useRouter();
 
+  // =========================================================================
+  // EVENT HANDLERS
+  // =========================================================================
+
+  /**
+   * Handle email/password sign in
+   *
+   * Uses NextAuth's credentials provider to authenticate.
+   * On success, redirects to the appropriate dashboard based on user type.
+   *
+   * @param e - Form submit event
+   */
   const handleEmailSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
 
     try {
+      // Attempt to sign in with credentials
+      // redirect: false prevents automatic redirect so we can handle errors
       const result = await signIn('credentials', {
         email,
         password,
@@ -27,8 +104,10 @@ export default function SignInPage() {
       });
 
       if (result?.error) {
+        // Authentication failed
         setError('Invalid credentials');
       } else {
+        // Success - redirect to appropriate dashboard
         router.push(userType === 'creator' ? '/creator/dashboard' : '/brand/discover');
       }
     } catch (err) {
@@ -38,16 +117,33 @@ export default function SignInPage() {
     }
   };
 
+  /**
+   * Handle Google OAuth sign in (for Creators)
+   *
+   * Initiates Google OAuth flow through NextAuth.
+   * This allows creators to sign in with their YouTube/Google account.
+   */
   const handleGoogleSignIn = async () => {
     setLoading(true);
+    // callbackUrl determines where user goes after OAuth completes
     await signIn('google', {
       callbackUrl: userType === 'creator' ? '/creator/dashboard' : '/brand/discover',
     });
   };
 
+  // =========================================================================
+  // RENDER
+  // =========================================================================
+
   return (
+    // Full-page container with gradient background
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-6">
       <div className="w-full max-w-md">
+
+        {/* =====================================================================
+            HEADER - Logo and Welcome Message
+            =====================================================================
+        */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-2 mb-4">
             <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg"></div>
@@ -56,7 +152,14 @@ export default function SignInPage() {
           <p className="text-gray-300">Sign in to your account</p>
         </div>
 
+        {/* =====================================================================
+            USER TYPE TOGGLE
+            =====================================================================
+            Segmented control to switch between Creator and Brand sign-in.
+            This determines OAuth options and post-login redirect destination.
+        */}
         <div className="bg-slate-800/50 rounded-lg p-1 mb-6 flex gap-1">
+          {/* Creator option */}
           <button
             onClick={() => setUserType('creator')}
             className={`flex-1 py-3 rounded-md font-medium transition ${
@@ -68,6 +171,7 @@ export default function SignInPage() {
             <User className="w-4 h-4 inline mr-2" />
             Creator
           </button>
+          {/* Brand option */}
           <button
             onClick={() => setUserType('brand')}
             className={`flex-1 py-3 rounded-md font-medium transition ${
@@ -81,7 +185,13 @@ export default function SignInPage() {
           </button>
         </div>
 
+        {/* =====================================================================
+            SIGN IN FORM CARD
+            =====================================================================
+        */}
         <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-8 border border-purple-500/20">
+
+          {/* Google OAuth button - Only shown for Creators */}
           {userType === 'creator' && (
             <button
               onClick={handleGoogleSignIn}
@@ -93,6 +203,7 @@ export default function SignInPage() {
             </button>
           )}
 
+          {/* Divider between OAuth and email options */}
           <div className="relative my-6">
             <div className="absolute inset-0 flex items-center">
               <div className="w-full border-t border-gray-600"></div>
@@ -102,13 +213,16 @@ export default function SignInPage() {
             </div>
           </div>
 
+          {/* Error message display */}
           {error && (
             <div className="bg-red-500/10 border border-red-500/50 text-red-400 px-4 py-3 rounded-lg mb-4">
               {error}
             </div>
           )}
 
+          {/* Email/Password form */}
           <form onSubmit={handleEmailSignIn} className="space-y-4">
+            {/* Email input with icon */}
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
                 Email
@@ -126,6 +240,7 @@ export default function SignInPage() {
               </div>
             </div>
 
+            {/* Password input with icon */}
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
                 Password
@@ -143,6 +258,7 @@ export default function SignInPage() {
               </div>
             </div>
 
+            {/* Remember me checkbox and forgot password link */}
             <div className="flex items-center justify-between text-sm">
               <label className="flex items-center text-gray-300">
                 <input type="checkbox" className="mr-2 rounded" />
@@ -153,6 +269,7 @@ export default function SignInPage() {
               </a>
             </div>
 
+            {/* Submit button with loading state */}
             <button
               type="submit"
               disabled={loading}
@@ -162,6 +279,7 @@ export default function SignInPage() {
             </button>
           </form>
 
+          {/* Link to sign up page for new users */}
           <p className="text-center text-gray-400 mt-6">
             Don't have an account?{' '}
             <a href="/auth/signup" className="text-purple-400 hover:text-purple-300 font-medium">

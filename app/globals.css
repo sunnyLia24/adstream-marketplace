@@ -1,7 +1,79 @@
+/**
+ * =============================================================================
+ * GLOBAL STYLES
+ * =============================================================================
+ *
+ * This file contains global CSS styles applied to the entire AdStream application.
+ * It uses Tailwind CSS as the styling framework.
+ *
+ * TAILWIND CSS DIRECTIVES:
+ * ------------------------
+ * The @tailwind directives inject Tailwind's styles at build time:
+ *
+ * @tailwind base:
+ * - Normalizes browser defaults (Preflight)
+ * - Sets up CSS custom properties
+ * - Provides sensible typography defaults
+ *
+ * @tailwind components:
+ * - Injects component classes (e.g., .container)
+ * - Place for custom component classes using @layer components {}
+ *
+ * @tailwind utilities:
+ * - Injects all utility classes (e.g., .flex, .bg-purple-600, .text-white)
+ * - The core of Tailwind's utility-first approach
+ *
+ * ADSTREAM'S DESIGN SYSTEM:
+ * -------------------------
+ * The application uses a dark, modern aesthetic with:
+ *
+ * Color Palette:
+ * - Background: Slate grays (slate-900, slate-800)
+ * - Primary: Purple gradient (purple-500 to pink-500)
+ * - Text: White and gray variants
+ * - Accents: Green (success), Red (error), Purple (interactive)
+ *
+ * Common Patterns:
+ * - Gradient backgrounds: bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900
+ * - Glass morphism: bg-slate-800/50 backdrop-blur-sm
+ * - Purple borders: border-purple-500/20
+ * - Rounded corners: rounded-lg, rounded-2xl
+ *
+ * CUSTOMIZATION:
+ * --------------
+ * To add custom styles or override Tailwind defaults:
+ *
+ * 1. Add custom CSS below the directives
+ * 2. Use @layer to organize custom styles:
+ *
+ *    @layer components {
+ *      .btn-primary {
+ *        @apply bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg;
+ *      }
+ *    }
+ *
+ * 3. Modify tailwind.config.ts for theme extensions
+ *
+ * SEE ALSO:
+ * - tailwind.config.ts - Tailwind configuration and theme customization
+ * - https://tailwindcss.com/docs - Tailwind CSS documentation
+ */
+
+/* Tailwind Base - Normalizes browser defaults and sets up foundation */
 @tailwind base;
+
+/* Tailwind Components - Pre-built component classes */
 @tailwind components;
+
+/* Tailwind Utilities - All utility classes (flex, padding, colors, etc.) */
 @tailwind utilities;
 
+/**
+ * Global body styles
+ *
+ * Remove default browser margin and padding for consistent layout.
+ * This ensures the app fills the entire viewport without gaps.
+ */
 body {
   margin: 0;
   padding: 0;

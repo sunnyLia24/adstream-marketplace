@@ -1,12 +1,53 @@
+// =============================================================================
+// ADSTREAM MARKETPLACE - DATABASE SCHEMA
+// =============================================================================
+// This is the Prisma schema file that defines the data models for the AdStream
+// Creator Marketplace. It uses PostgreSQL as the database provider.
+//
+// The marketplace connects two types of users:
+// 1. CREATORS - YouTube content creators who list upcoming videos for ad placement
+// 2. BRANDS - Companies who bid on ad slots in creator videos
+//
+// Key workflows:
+// - Creators create ContentListings with AdSlots for upcoming videos
+// - Brands discover listings and place Bids on available AdSlots
+// - When a bid is accepted, a Deal is created to track payment and delivery
+// =============================================================================
+
+// -----------------------------------------------------------------------------
+// PRISMA GENERATOR CONFIGURATION
+// -----------------------------------------------------------------------------
+// Generates the Prisma Client for JavaScript/TypeScript
+// This client is used throughout the application to interact with the database
 generator client {
   provider = "prisma-client-js"
 }
 
+// -----------------------------------------------------------------------------
+// DATABASE CONNECTION CONFIGURATION
+// -----------------------------------------------------------------------------
+// PostgreSQL is used as the database provider
+// The connection string is stored in the DATABASE_URL environment variable
+// Format: postgresql://USER:PASSWORD@HOST:PORT/DATABASE?schema=public
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
+// =============================================================================
+// USER MODEL
+// =============================================================================
+// The base user model for authentication. Every user has either a Creator
+// or Brand profile linked to it (one-to-one relationship).
+//
+// Fields:
+// - id: Unique identifier using CUID (Collision-resistant Unique Identifier)
+// - email: Unique email address for login
+// - passwordHash: Bcrypt-hashed password (null if using OAuth)
+// - name: Display name of the user
+// - userType: Either CREATOR or BRAND, determines which profile is active
+// - createdAt/updatedAt: Automatic timestamps for record tracking
+// - creator/brand: One-to-one relationships to profile models
 model User {
   id            String    @id @default(cuid())
   email         String    @unique
@@ -15,85 +56,159 @@ model User {
   userType      UserType
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
-  
+
+  // Relations - A user can be either a creator OR a brand (not both)
   creator       Creator?
   brand         Brand?
 }
 
+// -----------------------------------------------------------------------------
+// USER TYPE ENUM
+// -----------------------------------------------------------------------------
+// Defines the two types of users in the marketplace
+// CREATOR: Content creators who list videos and receive bids
+// BRAND: Companies/advertisers who discover creators and place bids
 enum UserType {
   CREATOR
   BRAND
 }
 
+// =============================================================================
+// CREATOR MODEL
+// =============================================================================
+// Extended profile for creator users. Contains YouTube channel information,
+// personal branding details, and payment configuration.
+//
+// Key relationships:
+// - user: Link back to the User model (one-to-one)
+// - contentListings: Videos they've listed for ad placement
+// - bids: Bids they've received from brands
+// - deals: Finalized deals for their content
+//
+// YouTube Integration:
+// When a creator connects their YouTube account, we store:
+// - Channel ID, name, and URL
+// - Subscriber count (for brand discovery filters)
+// - Profile image from YouTube
+// - OAuth token for API access
 model Creator {
   id                String    @id @default(cuid())
   userId            String    @unique
   user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  youtubeChannelId  String?   @unique
-  youtubeToken      String?
-  channelName       String?
-  channelUrl        String?
-  subscriberCount   Int?
-  profileImage      String?
-  
-  bio               String?
-  niche             String[]
-  
-  stripeAccountId   String?
-  
+
+  // YouTube account connection fields
+  // These are populated when creator connects their YouTube via OAuth
+  youtubeChannelId  String?   @unique  // YouTube's unique channel identifier
+  youtubeToken      String?             // Stored OAuth token for YouTube API access
+  channelName       String?             // Display name of the YouTube channel
+  channelUrl        String?             // Full URL to the YouTube channel
+  subscriberCount   Int?                // Current subscriber count (for filtering)
+  profileImage      String?             // Channel thumbnail/avatar URL
+
+  // Creator profile information
+  bio               String?             // Creator's bio/description for brands
+  niche             String[]            // Content categories (e.g., ["Technology", "Gaming"])
+
+  // Payment configuration
+  stripeAccountId   String?             // Stripe Connect account for receiving payments
+
+  // Timestamps
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
-  
-  contentListings   ContentListing[]
-  bids              Bid[]      @relation("CreatorBids")
-  deals             Deal[]
+
+  // Relations
+  contentListings   ContentListing[]    // Videos listed for ad placements
+  bids              Bid[]      @relation("CreatorBids")  // Bids received from brands
+  deals             Deal[]              // Completed deals
 }
 
+// =============================================================================
+// BRAND MODEL
+// =============================================================================
+// Extended profile for brand/advertiser users. Contains company information
+// and payment configuration.
+//
+// Key relationships:
+// - user: Link back to the User model (one-to-one)
+// - bids: Bids they've placed on ad slots
+// - deals: Finalized deals they're participating in
 model Brand {
   id              String    @id @default(cuid())
   userId          String    @unique
   user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  companyName     String
-  website         String?
-  industry        String?
-  logo            String?
-  
-  stripeCustomerId String?
-  
+
+  // Company information
+  companyName     String              // Official company/brand name
+  website         String?             // Company website URL
+  industry        String?             // Industry category (e.g., "Technology", "Fashion")
+  logo            String?             // URL to company logo image
+
+  // Payment configuration
+  stripeCustomerId String?            // Stripe customer ID for making payments
+
+  // Timestamps
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
-  
-  bids            Bid[]
-  deals           Deal[]
+
+  // Relations
+  bids            Bid[]               // Bids placed on creator content
+  deals           Deal[]              // Finalized deals
 }
 
+// =============================================================================
+// CONTENT LISTING MODEL
+// =============================================================================
+// Represents a scheduled video that a creator is planning to publish.
+// Brands can discover these listings and bid on the available ad slots.
+//
+// Workflow:
+// 1. Creator creates listing with title, topic, and planned publish date
+// 2. Creator adds one or more AdSlots to the listing
+// 3. Brands discover the listing and place bids on slots
+// 4. Creator reviews bids and accepts the best ones
+// 5. Listing status updates as the process progresses
+//
+// Important: Bidding closes 72 hours before the plannedPublishDate
 model ContentListing {
   id              String    @id @default(cuid())
   creatorId       String
   creator         Creator   @relation(fields: [creatorId], references: [id], onDelete: Cascade)
-  
-  title           String
-  description     String?
-  topic           String
-  seriesName      String?
-  
-  plannedPublishDate DateTime
-  
-  status          ListingStatus @default(ACTIVE)
-  
-  expectedViews   Int?
-  avgEngagementRate Float?
-  audienceDemographics Json?
-  
+
+  // Content details
+  title           String              // Video title (e.g., "Complete React Tutorial 2024")
+  description     String?             // Detailed description of the video content
+  topic           String              // Main topic/category (e.g., "Web Development")
+  seriesName      String?             // If part of a series (e.g., "React Fundamentals")
+
+  // Scheduling
+  plannedPublishDate DateTime         // When the video will be published (bidding closes 72h before)
+
+  // Status tracking
+  status          ListingStatus @default(ACTIVE)  // Current state of the listing
+
+  // Performance expectations (for brand decision-making)
+  expectedViews   Int?                // Estimated view count based on channel history
+  avgEngagementRate Float?            // Average likes/comments ratio
+  audienceDemographics Json?          // JSON object with age, gender, location data
+
+  // Timestamps
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
-  
-  adSlots         AdSlot[]
-  bids            Bid[]
+
+  // Relations
+  adSlots         AdSlot[]            // Available ad placement slots
+  bids            Bid[]               // All bids received for this listing
 }
 
+// -----------------------------------------------------------------------------
+// LISTING STATUS ENUM
+// -----------------------------------------------------------------------------
+// Tracks the lifecycle of a content listing
+// DRAFT: Not yet visible to brands
+// ACTIVE: Open for bidding
+// CLOSED: Bidding period has ended
+// COMPLETED: Video published and ads delivered
+// CANCELLED: Listing withdrawn by creator
 enum ListingStatus {
   DRAFT
   ACTIVE
@@ -102,33 +217,65 @@ enum ListingStatus {
   CANCELLED
 }
 
+// =============================================================================
+// AD SLOT MODEL
+// =============================================================================
+// Represents a specific advertising opportunity within a content listing.
+// Each slot is a different type of ad placement that brands can bid on.
+//
+// Slot Types:
+// - IN_VIDEO_INTEGRATION: Product/service featured within the video content
+// - LIVE_MENTION: Verbal mention during a live stream
+// - STORY: Short-form content mention (YouTube Shorts)
+// - SHOUTOUT: Direct endorsement/recommendation
+// - DESCRIPTION_LINK: Link in video description with mention
+//
+// Pricing:
+// - reservePrice: Minimum bid amount the creator will accept
+// - Brands must bid at or above this price
 model AdSlot {
   id                String    @id @default(cuid())
   contentListingId  String
   contentListing    ContentListing @relation(fields: [contentListingId], references: [id], onDelete: Cascade)
-  
-  slotType          AdSlotType
-  reservePrice      Decimal   @db.Decimal(10, 2)
-  duration          Int?
-  position          String?
-  
-  status            SlotStatus @default(AVAILABLE)
-  
+
+  // Slot configuration
+  slotType          AdSlotType        // Type of ad placement
+  reservePrice      Decimal   @db.Decimal(10, 2)  // Minimum acceptable bid amount
+  duration          Int?              // Duration in seconds (for video integrations)
+  position          String?           // Position in video (e.g., "beginning", "middle", "end")
+
+  // Status tracking
+  status            SlotStatus @default(AVAILABLE)  // Current availability state
+
+  // Timestamps
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
-  
-  bids              Bid[]
-  deal              Deal?
+
+  // Relations
+  bids              Bid[]             // All bids placed on this slot
+  deal              Deal?             // The winning deal (if sold)
 }
 
+// -----------------------------------------------------------------------------
+// AD SLOT TYPE ENUM
+// -----------------------------------------------------------------------------
+// Different types of advertising placements available
 enum AdSlotType {
-  IN_VIDEO_INTEGRATION
-  LIVE_MENTION
-  STORY
-  SHOUTOUT
-  DESCRIPTION_LINK
+  IN_VIDEO_INTEGRATION  // Product featured in video content
+  LIVE_MENTION          // Mentioned during live stream
+  STORY                 // Featured in short-form content
+  SHOUTOUT              // Direct endorsement/recommendation
+  DESCRIPTION_LINK      // Link in description with mention
 }
 
+// -----------------------------------------------------------------------------
+// SLOT STATUS ENUM
+// -----------------------------------------------------------------------------
+// Tracks the availability of an ad slot
+// AVAILABLE: Open for bidding
+// BIDDING_CLOSED: No longer accepting bids
+// SOLD: A bid has been accepted
+// COMPLETED: Ad has been delivered
 enum SlotStatus {
   AVAILABLE
   BIDDING_CLOSED
@@ -136,30 +283,60 @@ enum SlotStatus {
   COMPLETED
 }
 
+// =============================================================================
+// BID MODEL
+// =============================================================================
+// Represents an offer from a brand to purchase an ad slot.
+//
+// Workflow:
+// 1. Brand discovers a listing and chooses an ad slot
+// 2. Brand places a bid (must be >= reservePrice)
+// 3. Creator reviews the bid and accepts/rejects
+// 4. If accepted, a Deal is created and other bids are marked as OUTBID
+//
+// Validation:
+// - Bid amount must meet or exceed the slot's reserve price
+// - Bids cannot be placed within 72 hours of the publish date
 model Bid {
   id              String    @id @default(cuid())
   brandId         String
   brand           Brand     @relation(fields: [brandId], references: [id], onDelete: Cascade)
-  
+
+  // What the bid is for
   contentListingId String
   contentListing   ContentListing @relation(fields: [contentListingId], references: [id], onDelete: Cascade)
-  
+
   adSlotId        String
   adSlot          AdSlot    @relation(fields: [adSlotId], references: [id], onDelete: Cascade)
-  
-  bidAmount       Decimal   @db.Decimal(10, 2)
-  message         String?
-  
-  status          BidStatus @default(PENDING)
-  
+
+  // Bid details
+  bidAmount       Decimal   @db.Decimal(10, 2)  // Amount offered (must be >= reservePrice)
+  message         String?   // Optional message to the creator explaining the bid
+
+  // Status tracking
+  status          BidStatus @default(PENDING)   // Current state of the bid
+
+  // Timestamps
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
-  
+
+  // Creator who receives this bid (denormalized for easier querying)
   creator         Creator   @relation("CreatorBids", fields: [creatorId], references: [id])
   creatorId       String
+
+  // If bid is accepted, a deal is created
   deal            Deal?
 }
 
+// -----------------------------------------------------------------------------
+// BID STATUS ENUM
+// -----------------------------------------------------------------------------
+// Tracks the lifecycle of a bid
+// PENDING: Awaiting creator review
+// ACCEPTED: Creator accepted the bid (deal created)
+// REJECTED: Creator declined the bid
+// EXPIRED: Bid expired (passed bidding deadline)
+// OUTBID: Another bid on the same slot was accepted
 enum BidStatus {
   PENDING
   ACCEPTED
@@ -168,46 +345,90 @@ enum BidStatus {
   OUTBID
 }
 
+// =============================================================================
+// DEAL MODEL
+// =============================================================================
+// Represents a finalized agreement between a creator and brand.
+// Created when a creator accepts a bid.
+//
+// Financial Structure:
+// - dealAmount: The total amount the brand pays
+// - platformFee: 20% fee kept by AdStream
+// - creatorPayout: 80% paid to the creator
+//
+// Payment Flow:
+// 1. Brand pays the dealAmount (via Stripe)
+// 2. Platform holds funds
+// 3. Creator delivers content
+// 4. Brand verifies delivery
+// 5. Creator receives payout minus platform fee
+//
+// Verification:
+// After the content is published, the brand can verify that the
+// ad was properly included. This triggers the final payout.
 model Deal {
   id              String    @id @default(cuid())
-  
+
+  // Link to the original bid that was accepted
   bidId           String    @unique
   bid             Bid       @relation(fields: [bidId], references: [id])
-  
+
+  // The ad slot this deal is for
   adSlotId        String    @unique
   adSlot          AdSlot    @relation(fields: [adSlotId], references: [id])
-  
+
+  // Parties involved
   creatorId       String
   creator         Creator   @relation(fields: [creatorId], references: [id])
-  
+
   brandId         String
   brand           Brand     @relation(fields: [brandId], references: [id])
-  
-  dealAmount      Decimal   @db.Decimal(10, 2)
-  platformFee     Decimal   @db.Decimal(10, 2)
-  creatorPayout   Decimal   @db.Decimal(10, 2)
-  
-  paymentTiming   PaymentTiming
-  paymentStatus   PaymentStatus @default(PENDING)
-  
-  stripePaymentIntentId String?
-  stripeTransferId      String?
-  
-  contentDelivered Boolean @default(false)
-  contentUrl       String?
-  verificationStatus VerificationStatus @default(PENDING)
-  verificationNotes  String?
-  
+
+  // Financial details
+  dealAmount      Decimal   @db.Decimal(10, 2)  // Total amount from brand
+  platformFee     Decimal   @db.Decimal(10, 2)  // 20% platform fee
+  creatorPayout   Decimal   @db.Decimal(10, 2)  // 80% to creator
+
+  // Payment configuration
+  paymentTiming   PaymentTiming         // When payment is collected
+  paymentStatus   PaymentStatus @default(PENDING)  // Current payment state
+
+  // Stripe integration
+  stripePaymentIntentId String?         // Stripe PaymentIntent ID for tracking
+  stripeTransferId      String?         // Stripe Transfer ID for creator payout
+
+  // Content delivery tracking
+  contentDelivered Boolean @default(false)  // Has the creator published the content?
+  contentUrl       String?                   // URL to the published content (for verification)
+  verificationStatus VerificationStatus @default(PENDING)  // Brand's verification of delivery
+  verificationNotes  String?                 // Notes from verification (approval/rejection reason)
+
+  // Timestamps
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
-  completedAt     DateTime?
+  completedAt     DateTime?               // When the deal was fully completed
 }
 
+// -----------------------------------------------------------------------------
+// PAYMENT TIMING ENUM
+// -----------------------------------------------------------------------------
+// When the brand is charged for the deal
+// UPFRONT: Brand pays when deal is created
+// AFTER_DELIVERY: Brand pays after content verification
 enum PaymentTiming {
   UPFRONT
   AFTER_DELIVERY
 }
 
+// -----------------------------------------------------------------------------
+// PAYMENT STATUS ENUM
+// -----------------------------------------------------------------------------
+// Tracks the payment lifecycle
+// PENDING: Awaiting payment
+// PAID: Payment received
+// PROCESSING: Payment being processed
+// FAILED: Payment failed
+// REFUNDED: Payment was refunded
 enum PaymentStatus {
   PENDING
   PAID
@@ -216,6 +437,14 @@ enum PaymentStatus {
   REFUNDED
 }
 
+// -----------------------------------------------------------------------------
+// VERIFICATION STATUS ENUM
+// -----------------------------------------------------------------------------
+// Tracks whether the ad was properly delivered
+// PENDING: Awaiting verification
+// APPROVED: Brand confirmed proper delivery
+// REJECTED: Brand claims ad was not delivered properly
+// DISPUTED: Under review by platform
 enum VerificationStatus {
   PENDING
   APPROVED

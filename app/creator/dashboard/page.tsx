@@ -1,3 +1,50 @@
+/**
+ * =============================================================================
+ * CREATOR DASHBOARD PAGE
+ * =============================================================================
+ *
+ * This is the main dashboard for content creators. It provides a comprehensive
+ * interface for managing content listings, viewing statistics, and creating
+ * new ad opportunities for brands to bid on.
+ *
+ * PAGE FEATURES:
+ * --------------
+ * 1. Statistics Overview
+ *    - Total Earnings: Sum of all paid deals
+ *    - Active Bids: Pending bids awaiting creator review
+ *    - Upcoming Content: Active listings with future publish dates
+ *    - Total Listings: All content listings created
+ *
+ * 2. Content Listings Management
+ *    - View all content listings
+ *    - See bid counts per listing
+ *    - Access bid details
+ *
+ * 3. Create Content Listing Modal
+ *    - Form to create new content listings
+ *    - Add multiple ad slots with different types and prices
+ *    - Set planned publish date and content details
+ *
+ * AUTHENTICATION:
+ * ---------------
+ * This page is protected. It automatically redirects unauthenticated users
+ * to the sign-in page. The session is checked on mount.
+ *
+ * DATA FLOW:
+ * ----------
+ * 1. Page loads → Check authentication status
+ * 2. If authenticated → Fetch creator profile and listings
+ * 3. Profile provides stats (earnings, bids, content count)
+ * 4. Listings displayed in scrollable list
+ * 5. Create modal submits to API and refreshes listings
+ *
+ * API ENDPOINTS USED:
+ * -------------------
+ * - GET /api/creators/profile - Fetch creator stats
+ * - GET /api/creators/content-listings - Fetch all listings
+ * - POST /api/creators/content-listings - Create new listing
+ */
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -5,49 +52,89 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { Calendar, Plus, DollarSign, TrendingUp, Users, Video, X } from 'lucide-react';
 
+/**
+ * CreatorDashboard Component
+ *
+ * The main dashboard interface for content creators to manage their
+ * ad inventory and track performance.
+ */
 export default function CreatorDashboard() {
+  // =========================================================================
+  // AUTHENTICATION & ROUTING
+  // =========================================================================
+
+  // Get current session and authentication status from NextAuth
   const { data: session, status } = useSession();
   const router = useRouter();
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [contentListings, setContentListings] = useState<any[]>([]);
+
+  // =========================================================================
+  // STATE MANAGEMENT
+  // =========================================================================
+
+  // UI State
+  const [showCreateModal, setShowCreateModal] = useState(false); // Controls modal visibility
+  const [loading, setLoading] = useState(true); // Initial data loading state
+
+  // Data State
+  const [contentListings, setContentListings] = useState<any[]>([]); // Creator's content listings
+
+  // Statistics displayed in dashboard cards
   const [stats, setStats] = useState({
-    totalEarnings: 0,
-    activeBids: 0,
-    upcomingContent: 0,
-    avgEngagement: 0,
+    totalEarnings: 0,     // Sum of all paid deals
+    activeBids: 0,        // Pending bids awaiting review
+    upcomingContent: 0,   // Active listings with future dates
+    avgEngagement: 0,     // Average engagement rate
   });
 
+  // Form data for creating new content listings
   const [formData, setFormData] = useState({
-    title: '',
-    topic: '',
-    seriesName: '',
-    plannedPublishDate: '',
-    description: '',
-    adSlots: [] as Array<{
-      slotType: string;
-      reservePrice: string;
-      duration?: string;
-      position?: string;
+    title: '',                    // Content title (e.g., "React Tutorial 2024")
+    topic: '',                    // Topic category (e.g., "Web Development")
+    seriesName: '',               // Optional series name
+    plannedPublishDate: '',       // When content will be published
+    description: '',              // Content description
+    adSlots: [] as Array<{        // Array of ad slot configurations
+      slotType: string;           // Type of ad placement
+      reservePrice: string;       // Minimum bid price
+      duration?: string;          // Duration in seconds (optional)
+      position?: string;          // Position in video (optional)
     }>,
   });
 
+  // =========================================================================
+  // CONSTANTS
+  // =========================================================================
+
+  /**
+   * Available ad slot types that brands can bid on.
+   * Each type represents a different advertising opportunity within content.
+   */
   const adSlotTypes = [
-    { value: 'IN_VIDEO_INTEGRATION', label: 'In-Video Integration' },
-    { value: 'LIVE_MENTION', label: 'Live Mention' },
-    { value: 'STORY', label: 'Story' },
-    { value: 'SHOUTOUT', label: 'Shoutout' },
-    { value: 'DESCRIPTION_LINK', label: 'Description Link' },
+    { value: 'IN_VIDEO_INTEGRATION', label: 'In-Video Integration' },  // Product featured in video
+    { value: 'LIVE_MENTION', label: 'Live Mention' },                  // Mentioned during livestream
+    { value: 'STORY', label: 'Story' },                                // Featured in short-form content
+    { value: 'SHOUTOUT', label: 'Shoutout' },                          // Direct endorsement
+    { value: 'DESCRIPTION_LINK', label: 'Description Link' },          // Link in video description
   ];
 
-  // Redirect if not authenticated
+  // =========================================================================
+  // EFFECTS
+  // =========================================================================
+
+  /**
+   * Authentication check effect
+   * Redirects to sign-in page if user is not authenticated
+   */
   useEffect(() => {
     if (status === 'unauthenticated') {
       router.push('/auth/signin');
     }
   }, [status, router]);
 
-  // Fetch profile and listings
+  /**
+   * Data fetching effect
+   * Loads creator profile and content listings when authenticated
+   */
   useEffect(() => {
     if (status === 'authenticated') {
       fetchProfile();
@@ -55,18 +142,34 @@ export default function CreatorDashboard() {
     }
   }, [status]);
 
+  // =========================================================================
+  // DATA FETCHING FUNCTIONS
+  // =========================================================================
+
+  /**
+   * Fetch creator profile and statistics
+   *
+   * Retrieves the creator's profile data including aggregated stats
+   * like total earnings, active bids, and upcoming content count.
+   */
   const fetchProfile = async () => {
     try {
       const response = await fetch('/api/creators/profile');
       if (response.ok) {
         const data = await response.json();
-        setStats(data.stats || stats);
+        setStats(data.stats || stats); // Update stats from API response
       }
     } catch (error) {
       console.error('Error fetching profile:', error);
     }
   };
 
+  /**
+   * Fetch all content listings for this creator
+   *
+   * Retrieves the list of content listings including ad slots and bids.
+   * Results are displayed in the dashboard's content section.
+   */
   const fetchListings = async () => {
     try {
       const response = await fetch('/api/creators/content-listings');
@@ -77,20 +180,40 @@ export default function CreatorDashboard() {
     } catch (error) {
       console.error('Error fetching listings:', error);
     } finally {
-      setLoading(false);
+      setLoading(false); // Stop loading indicator
     }
   };
 
+  // =========================================================================
+  // FORM HANDLERS
+  // =========================================================================
+
+  /**
+   * Add a new ad slot to the form
+   *
+   * Creates a new ad slot entry with default values.
+   * Users can configure the slot type and reserve price.
+   */
   const addAdSlot = () => {
     setFormData({
       ...formData,
       adSlots: [
         ...formData.adSlots,
-        { slotType: 'IN_VIDEO_INTEGRATION', reservePrice: '', duration: '60', position: 'middle' },
+        {
+          slotType: 'IN_VIDEO_INTEGRATION', // Default to in-video integration
+          reservePrice: '',                 // User must set price
+          duration: '60',                   // Default 60 second integration
+          position: 'middle'                // Default to middle of video
+        },
       ],
     });
   };
 
+  /**
+   * Remove an ad slot from the form by index
+   *
+   * @param index - The index of the ad slot to remove
+   */
   const removeAdSlot = (index: number) => {
     setFormData({
       ...formData,
@@ -98,6 +221,12 @@ export default function CreatorDashboard() {
     });
   };
 
+  /**
+   * Submit the new content listing form
+   *
+   * Creates a new content listing with the specified ad slots.
+   * On success, adds the new listing to the list and closes the modal.
+   */
   const handleSubmit = async () => {
     try {
       const response = await fetch('/api/creators/content-listings', {
@@ -108,9 +237,11 @@ export default function CreatorDashboard() {
 
       if (response.ok) {
         const newListing = await response.json();
+        // Add new listing to the beginning of the list
         setContentListings([newListing, ...contentListings]);
         setShowCreateModal(false);
-        // Reset form
+
+        // Reset form to initial state
         setFormData({
           title: '',
           topic: '',
@@ -129,6 +260,11 @@ export default function CreatorDashboard() {
     }
   };
 
+  // =========================================================================
+  // LOADING STATE
+  // =========================================================================
+
+  // Show loading screen while checking auth or fetching initial data
   if (status === 'loading' || loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
@@ -137,10 +273,21 @@ export default function CreatorDashboard() {
     );
   }
 
+  // =========================================================================
+  // RENDER
+  // =========================================================================
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+
+      {/* =====================================================================
+          NAVIGATION BAR
+          =====================================================================
+          Top navigation with logo, nav links, and user info
+      */}
       <nav className="bg-slate-900/80 backdrop-blur-md border-b border-purple-500/20">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+          {/* Logo and navigation links */}
           <div className="flex items-center gap-8">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg"></div>
@@ -152,6 +299,7 @@ export default function CreatorDashboard() {
               <a href="/creator/deals" className="text-gray-400 hover:text-white transition">Deals</a>
             </div>
           </div>
+          {/* User info and sign out */}
           <div className="flex items-center gap-4">
             <span className="text-gray-300">{session?.user?.name}</span>
             <button
@@ -164,12 +312,23 @@ export default function CreatorDashboard() {
         </div>
       </nav>
 
+      {/* =====================================================================
+          MAIN CONTENT AREA
+          =====================================================================
+      */}
       <div className="max-w-7xl mx-auto px-6 py-8">
+
+        {/* ===================================================================
+            PAGE HEADER
+            ===================================================================
+            Welcome message and "New Content" button
+        */}
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-4xl font-bold text-white mb-2">Welcome back, {session?.user?.name}!</h1>
             <p className="text-gray-300">Manage your content and track your earnings</p>
           </div>
+          {/* Button to open create content modal */}
           <button
             onClick={() => setShowCreateModal(true)}
             className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white px-6 py-3 rounded-lg font-semibold flex items-center gap-2 transition"
@@ -179,7 +338,13 @@ export default function CreatorDashboard() {
           </button>
         </div>
 
+        {/* ===================================================================
+            STATISTICS CARDS
+            ===================================================================
+            4-column grid showing key metrics
+        */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          {/* Total Earnings Card */}
           <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-purple-500/20">
             <div className="flex items-center justify-between mb-2">
               <span className="text-gray-400">Total Earnings</span>
@@ -189,6 +354,7 @@ export default function CreatorDashboard() {
             <div className="text-sm text-gray-400 mt-1">All time</div>
           </div>
 
+          {/* Active Bids Card */}
           <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-purple-500/20">
             <div className="flex items-center justify-between mb-2">
               <span className="text-gray-400">Active Bids</span>
@@ -198,6 +364,7 @@ export default function CreatorDashboard() {
             <div className="text-sm text-gray-400 mt-1">Pending review</div>
           </div>
 
+          {/* Upcoming Content Card */}
           <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-purple-500/20">
             <div className="flex items-center justify-between mb-2">
               <span className="text-gray-400">Upcoming Content</span>
@@ -207,6 +374,7 @@ export default function CreatorDashboard() {
             <div className="text-sm text-gray-400 mt-1">Scheduled</div>
           </div>
 
+          {/* Total Listings Card */}
           <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-purple-500/20">
             <div className="flex items-center justify-between mb-2">
               <span className="text-gray-400">Total Listings</span>
@@ -217,8 +385,15 @@ export default function CreatorDashboard() {
           </div>
         </div>
 
+        {/* ===================================================================
+            CONTENT LISTINGS SECTION
+            ===================================================================
+            List of all creator's content listings with bid info
+        */}
         <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-purple-500/20">
           <h2 className="text-2xl font-bold text-white mb-6">Your Content Listings</h2>
+
+          {/* Empty state - shown when no listings exist */}
           {contentListings.length === 0 ? (
             <div className="text-center py-12">
               <p className="text-gray-400 mb-4">No content listings yet</p>
@@ -230,6 +405,7 @@ export default function CreatorDashboard() {
               </button>
             </div>
           ) : (
+            // Listings list
             <div className="space-y-4">
               {contentListings.map((listing) => (
                 <div
@@ -237,19 +413,24 @@ export default function CreatorDashboard() {
                   className="bg-slate-700/50 rounded-lg p-6 border border-purple-500/10 hover:border-purple-500/30 transition"
                 >
                   <div className="flex items-start justify-between">
+                    {/* Listing details */}
                     <div className="flex-1">
                       <h3 className="text-xl font-semibold text-white mb-2">{listing.title}</h3>
                       <div className="flex items-center gap-4 text-sm text-gray-400">
+                        {/* Publish date */}
                         <span className="flex items-center gap-1">
                           <Calendar className="w-4 h-4" />
                           {new Date(listing.plannedPublishDate).toLocaleDateString()}
                         </span>
+                        {/* Topic badge */}
                         <span className="px-2 py-1 bg-purple-500/20 text-purple-300 rounded">
                           {listing.topic}
                         </span>
+                        {/* Ad slot count */}
                         <span>{listing.adSlots?.length || 0} ad slots</span>
                       </div>
                     </div>
+                    {/* Bid count and view button */}
                     <div className="text-right">
                       <div className="text-sm text-gray-400 mb-1">{listing.bids?.length || 0} bids</div>
                       {listing.bids && listing.bids.length > 0 && (
@@ -266,9 +447,17 @@ export default function CreatorDashboard() {
         </div>
       </div>
 
+      {/* =====================================================================
+          CREATE CONTENT MODAL
+          =====================================================================
+          Modal form for creating new content listings with ad slots.
+          Displays as an overlay when showCreateModal is true.
+      */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-6 z-50">
           <div className="bg-slate-800 rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto border border-purple-500/20">
+
+            {/* Modal Header - sticky for long forms */}
             <div className="sticky top-0 bg-slate-800 border-b border-purple-500/20 p-6 flex items-center justify-between">
               <h2 className="text-2xl font-bold text-white">Create Content Listing</h2>
               <button
@@ -279,8 +468,12 @@ export default function CreatorDashboard() {
               </button>
             </div>
 
+            {/* Modal Body - Form Fields */}
             <div className="p-6 space-y-6">
+
+              {/* Content Details Section */}
               <div className="space-y-4">
+                {/* Title input */}
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">
                     Content Title *
@@ -294,6 +487,7 @@ export default function CreatorDashboard() {
                   />
                 </div>
 
+                {/* Topic and Series Name (side by side) */}
                 <div className="grid md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -322,6 +516,7 @@ export default function CreatorDashboard() {
                   </div>
                 </div>
 
+                {/* Planned Publish Date - must be in the future */}
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">
                     Planned Publish Date *
@@ -331,10 +526,11 @@ export default function CreatorDashboard() {
                     value={formData.plannedPublishDate}
                     onChange={(e) => setFormData({ ...formData, plannedPublishDate: e.target.value })}
                     className="w-full bg-slate-700/50 border border-gray-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-purple-500"
-                    min={new Date().toISOString().split('T')[0]}
+                    min={new Date().toISOString().split('T')[0]} // Prevent past dates
                   />
                 </div>
 
+                {/* Description textarea */}
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">
                     Description
@@ -349,6 +545,11 @@ export default function CreatorDashboard() {
                 </div>
               </div>
 
+              {/* ===============================================================
+                  AD SLOTS SECTION
+                  ===============================================================
+                  Dynamic list of ad slots that can be added/removed
+              */}
               <div>
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-semibold text-white">Ad Slots</h3>
@@ -361,11 +562,13 @@ export default function CreatorDashboard() {
                   </button>
                 </div>
 
+                {/* Ad Slots List */}
                 <div className="space-y-4">
                   {formData.adSlots.map((slot, index) => (
                     <div key={index} className="bg-slate-700/50 rounded-lg p-4 border border-purple-500/20">
                       <div className="flex items-start gap-4">
                         <div className="flex-1 grid md:grid-cols-2 gap-4">
+                          {/* Slot Type Select */}
                           <div>
                             <label className="block text-sm font-medium text-gray-300 mb-2">
                               Slot Type
@@ -387,6 +590,7 @@ export default function CreatorDashboard() {
                             </select>
                           </div>
 
+                          {/* Reserve Price Input */}
                           <div>
                             <label className="block text-sm font-medium text-gray-300 mb-2">
                               Reserve Price ($)
@@ -406,6 +610,7 @@ export default function CreatorDashboard() {
                           </div>
                         </div>
 
+                        {/* Remove Slot Button */}
                         <button
                           onClick={() => removeAdSlot(index)}
                           className="text-red-400 hover:text-red-300 transition mt-8"
@@ -416,6 +621,7 @@ export default function CreatorDashboard() {
                     </div>
                   ))}
 
+                  {/* Empty slots state */}
                   {formData.adSlots.length === 0 && (
                     <div className="text-center py-8 text-gray-400">
                       No ad slots added yet. Click "Add Slot" to create your first ad slot.
@@ -424,6 +630,11 @@ export default function CreatorDashboard() {
                 </div>
               </div>
 
+              {/* ===============================================================
+                  FORM ACTIONS
+                  ===============================================================
+                  Cancel and Submit buttons
+              */}
               <div className="flex gap-4 pt-4 border-t border-purple-500/20">
                 <button
                   onClick={() => setShowCreateModal(false)}
